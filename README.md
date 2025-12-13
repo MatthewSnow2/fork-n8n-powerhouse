@@ -1,30 +1,108 @@
 # n8n Powerhouse
 
-**An intelligent automation development environment combining Claude Code skills with n8n MCP tools for building production-ready workflows.**
+**Turn Claude into an n8n automation expert.** Build, validate, and deploy production-ready workflows through conversation.
 
-Turn Claude into an n8n automation expert that can design, build, validate, and deploy workflows directly to your n8n instance.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![n8n](https://img.shields.io/badge/n8n-Automation-orange)](https://n8n.io)
+[![Claude Code](https://img.shields.io/badge/Claude-Code-blue)](https://claude.ai/claude-code)
 
 ---
 
-## What is n8n Powerhouse?
+## The Problem
 
-n8n Powerhouse is a collection of **Claude Code skills** that give Claude deep expertise in n8n automation. When you install this in your project, Claude can:
+Building n8n workflows typically requires:
+- Learning n8n's node configurations and quirks
+- Understanding which nodes exist and how to configure them
+- Knowing the right patterns for webhooks, APIs, databases
+- Debugging expression syntax errors
+- Figuring out why your workflow isn't validating
 
-- **Architect** automation solutions (n8n vs Python vs Hybrid decisions)
-- **Design** workflows using proven patterns
-- **Build** workflows directly in your n8n instance via MCP
-- **Configure** nodes with operation-aware guidance
-- **Write** Code node logic in JavaScript or Python
-- **Validate** workflows before deployment
-- **Debug** expression syntax and common errors
+**What if Claude just knew all of this?**
+
+---
+
+## The Solution
+
+n8n Powerhouse is a **skills framework** that gives Claude deep expertise in n8n automation. It combines:
+
+1. **8 specialized skills** - Deep knowledge about n8n patterns, syntax, and best practices
+2. **n8n MCP integration** - Direct connection to your n8n instance to create/edit/validate workflows
+3. **Production guidance** - Built-in knowledge about idempotency, error handling, and operational concerns
+
+---
+
+## Before & After
+
+### Before (without n8n Powerhouse)
+
+```
+You: Build me a workflow that syncs Shopify orders to my CRM
+
+Claude: I can help you design a workflow. You would need:
+1. A Shopify trigger node
+2. Some transformation
+3. A CRM node
+
+You'll need to configure these in n8n...
+[Generic advice, no actual implementation]
+```
+
+### After (with n8n Powerhouse)
+
+```
+You: Build me a workflow that syncs Shopify orders to my CRM
+
+Claude: I'll build this for you. Let me:
+1. Analyze your stack → Recommending pure n8n (both have OAuth nodes)
+2. Apply webhook processing pattern with idempotency
+3. Create the workflow in your n8n instance...
+
+✅ Workflow created: "Shopify Order → Zoho CRM + Slack"
+   ID: BbRLnEFYH9f4T6Jr
+   URL: https://your-instance.app.n8n.cloud/workflow/BbRLnEFYH9f4T6Jr
+
+Next steps:
+1. Add your Shopify and Zoho credentials
+2. Activate the workflow
+```
+
+**Claude actually builds and deploys the workflow.**
+
+---
+
+## What Are Claude Code Skills?
+
+[Claude Code](https://claude.ai/claude-code) is Anthropic's CLI tool for working with Claude in your terminal. **Skills** are collections of markdown files that give Claude specialized knowledge.
+
+When you put skills in `.claude/skills/`, Claude reads them and gains that expertise. n8n Powerhouse provides 8 skills (~25,000 words of n8n knowledge) covering:
+
+- Architecture decisions
+- Workflow patterns
+- Node configuration
+- Code syntax
+- Expression debugging
+- Validation
+
+---
+
+## What is n8n MCP?
+
+[MCP (Model Context Protocol)](https://modelcontextprotocol.io/) allows Claude to use external tools. The [n8n MCP](https://www.npmjs.com/package/n8n-mcp) gives Claude tools to:
+
+- **Search** for nodes and templates
+- **Create** workflows in your n8n instance
+- **Update** existing workflows
+- **Validate** configurations
+- **Trigger** webhook workflows
+- **List** executions and debug
+
+Together, skills + MCP = Claude can **know** n8n AND **do** n8n.
 
 ---
 
 ## Quick Start
 
 ### 1. Install n8n MCP
-
-Add the n8n MCP server to Claude Code:
 
 ```bash
 claude mcp add n8n-mcp-api \
@@ -51,7 +129,121 @@ cd n8n-powerhouse
 claude
 ```
 
-Claude now has full n8n expertise via the skills in `.claude/skills/`.
+That's it. Claude now has full n8n expertise.
+
+---
+
+## Real-World Examples
+
+### Example 1: E-commerce Automation
+
+```
+You: I run a Shopify store and use Zoho CRM. When someone places an order,
+     I want to sync the customer to Zoho and notify my team on Slack.
+
+Claude: I'll analyze your stack and build this...
+
+[Claude uses n8n-workflow-architect to analyze]
+→ Shopify: OAuth, native trigger node ✓
+→ Zoho CRM: OAuth, native node ✓
+→ Slack: OAuth, native node ✓
+→ Recommendation: Pure n8n (all services supported)
+→ Pattern: Webhook Processing with idempotency
+
+[Claude uses n8n MCP to create workflow]
+→ Created: Shopify Order → Zoho CRM + Slack
+→ Includes: Duplicate prevention (check email before create)
+→ Includes: Error handling
+→ Includes: Slack notification with order details
+
+Here's your workflow: [link]
+```
+
+### Example 2: Tool Selection
+
+```
+You: Should I use n8n or Python to process 50,000 customer records daily?
+
+Claude: [Uses n8n-workflow-architect/tool-selection-matrix.md]
+
+For 50,000 records, I recommend a **hybrid approach**:
+
+Use n8n for:
+- Triggering (schedule trigger)
+- Authentication (if APIs need OAuth)
+- Notifications (Slack alerts)
+
+Use Python for:
+- The actual data processing (>5,000 record threshold)
+- Memory-efficient streaming
+- Complex transformations
+
+Architecture:
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ n8n         │     │ Python      │     │ n8n         │
+│ (Schedule)  │ ──► │ (Process)   │ ──► │ (Notify)    │
+└─────────────┘     └─────────────┘     └─────────────┘
+
+Why not pure n8n?
+- n8n runs on Node.js with memory limits
+- 50k records would likely crash or timeout
+- Python can stream/chunk efficiently
+```
+
+### Example 3: Debugging Expressions
+
+```
+You: My expression isn't working: {{ $json.email }}
+     The webhook sends {"body": {"email": "test@example.com"}}
+
+Claude: [Uses n8n-expression-syntax/COMMON_MISTAKES.md]
+
+Found the issue! Webhook data is nested under `body`.
+
+❌ Wrong: {{ $json.email }}
+✅ Correct: {{ $json.body.email }}
+
+The webhook node wraps the payload:
+{
+  "headers": {...},
+  "body": {           ← Your data is here
+    "email": "test@example.com"
+  }
+}
+```
+
+### Example 4: Production Readiness
+
+```
+You: I'm about to deploy my Stripe webhook workflow. What should I check?
+
+Claude: [Uses n8n-workflow-architect/production-readiness.md]
+
+Pre-deployment checklist for payment webhooks:
+
+□ Security
+  - Verify Stripe webhook signatures (Code node)
+  - Reject invalid signatures immediately
+
+□ Idempotency
+  - Store processed event IDs
+  - Check before processing: SELECT 1 FROM processed_events WHERE event_id = $1
+  - Skip if already processed
+
+□ Error Handling
+  - Error Trigger workflow → Slack #alerts
+  - Log all failures with context
+
+□ Response Time
+  - Use responseMode: "onReceived" (acknowledge Stripe immediately)
+  - Process async (Stripe retries on slow responses)
+
+□ Testing
+  - Use Stripe test mode
+  - Verify with Stripe CLI: stripe trigger payment_intent.succeeded
+
+Want me to add these patterns to your workflow?
+```
 
 ---
 
@@ -65,27 +257,26 @@ Claude now has full n8n expertise via the skills in `.claude/skills/`.
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      PLANNING LAYER (Use First)                          │
+│                      PLANNING LAYER                                      │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │                    n8n-workflow-architect                          │  │
 │  │  • Analyze business stack (Shopify, Zoho, HubSpot, etc.)          │  │
 │  │  • Decide: n8n vs Python vs Hybrid                                 │  │
 │  │  • Evaluate production readiness requirements                      │  │
-│  │  • Route to appropriate implementation skills                      │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                     ┌───────────────┼───────────────┐
                     ▼               ▼               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                    IMPLEMENTATION LAYER (Use Second)                     │
+│                    IMPLEMENTATION LAYER                                  │
 │  ┌─────────────────────┐ ┌─────────────────────┐ ┌───────────────────┐  │
 │  │ n8n-workflow-       │ │ n8n-node-           │ │ n8n-mcp-tools-    │  │
 │  │ patterns            │ │ configuration       │ │ expert            │  │
 │  │                     │ │                     │ │                   │  │
 │  │ • Webhook processing│ │ • Node setup        │ │ • Tool selection  │  │
 │  │ • API integration   │ │ • Property deps     │ │ • Parameter help  │  │
-│  │ • Database ops      │ │ • Auth configuration│ │ • MCP patterns    │  │
+│  │ • Database ops      │ │ • Auth config       │ │ • MCP patterns    │  │
 │  │ • AI agent workflows│ │ • Operation config  │ │                   │  │
 │  │ • Scheduled tasks   │ │                     │ │                   │  │
 │  └─────────────────────┘ └─────────────────────┘ └───────────────────┘  │
@@ -94,7 +285,7 @@ Claude now has full n8n expertise via the skills in `.claude/skills/`.
                     ┌───────────────┼───────────────┐
                     ▼               ▼               ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      CODE & SYNTAX LAYER (Use as Needed)                 │
+│                      CODE & SYNTAX LAYER                                 │
 │  ┌─────────────────────┐ ┌─────────────────────┐ ┌───────────────────┐  │
 │  │ n8n-code-           │ │ n8n-code-           │ │ n8n-expression-   │  │
 │  │ javascript          │ │ python              │ │ syntax            │  │
@@ -102,37 +293,29 @@ Claude now has full n8n expertise via the skills in `.claude/skills/`.
 │  │ • $input/$json      │ │ • _input/_json      │ │ • {{ }} syntax    │  │
 │  │ • $helpers usage    │ │ • Standard library  │ │ • $json access    │  │
 │  │ • DateTime handling │ │ • Python limits     │ │ • $node refs      │  │
-│  │ • HTTP requests     │ │                     │ │ • Error fixing    │  │
 │  └─────────────────────┘ └─────────────────────┘ └───────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                      VALIDATION LAYER (Use Before Deploy)                │
+│                      VALIDATION LAYER                                    │
 │  ┌───────────────────────────────────────────────────────────────────┐  │
 │  │                    n8n-validation-expert                           │  │
-│  │  • Interpret validation errors                                     │  │
-│  │  • Fix common issues                                               │  │
-│  │  • Validation profiles (minimal, runtime, ai-friendly, strict)    │  │
-│  │  • Pre-deployment checklist                                        │  │
+│  │  • Interpret validation errors • Fix common issues                 │  │
+│  │  • Validation profiles • Pre-deployment checklist                  │  │
 │  └───────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         n8n MCP TOOLS (Execution)                        │
+│                         n8n MCP TOOLS                                    │
 │                                                                          │
-│  Discovery          │  Workflow Mgmt      │  Validation & Deploy        │
-│  ─────────────────  │  ──────────────────  │  ──────────────────────    │
-│  • search_nodes     │  • n8n_create_      │  • validate_workflow        │
-│  • get_node_info    │    workflow         │  • validate_node_operation  │
-│  • list_nodes       │  • n8n_update_      │  • n8n_validate_workflow    │
-│  • get_node_        │    partial_workflow │  • validate_workflow_       │
-│    essentials       │  • n8n_get_workflow │    connections              │
-│  • list_ai_tools    │  • n8n_list_        │  • validate_workflow_       │
-│                     │    workflows        │    expressions              │
-│                     │  • n8n_delete_      │                             │
-│                     │    workflow         │                             │
+│  Discovery             Workflow Mgmt           Validation                │
+│  ─────────────────     ──────────────────     ────────────────────       │
+│  • search_nodes        • n8n_create_workflow  • validate_workflow        │
+│  • get_node_info       • n8n_update_workflow  • validate_node_operation  │
+│  • list_nodes          • n8n_get_workflow     • validate_expressions     │
+│  • list_ai_tools       • n8n_list_workflows   • validate_connections     │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -140,81 +323,86 @@ Claude now has full n8n expertise via the skills in `.claude/skills/`.
 
 ## The 8 Skills
 
-### 1. n8n-workflow-architect
-**Purpose:** Strategic planning and architecture decisions
+| Skill | Purpose | Key Decision |
+|-------|---------|--------------|
+| **n8n-workflow-architect** | Strategic planning | "Should I use n8n or Python?" |
+| **n8n-workflow-patterns** | Implementation patterns | "What's the right pattern for webhooks?" |
+| **n8n-node-configuration** | Node setup | "What fields does this node need?" |
+| **n8n-mcp-tools-expert** | MCP guidance | "Which MCP tool should I use?" |
+| **n8n-code-javascript** | JS Code nodes | "How do I access $json in Code?" |
+| **n8n-code-python** | Python Code nodes | "What Python modules are available?" |
+| **n8n-expression-syntax** | Expression debugging | "Why isn't my expression working?" |
+| **n8n-validation-expert** | Error fixing | "What does this validation error mean?" |
 
-**Use when:**
+### Skill Details
+
+<details>
+<summary><strong>n8n-workflow-architect</strong> - Strategic planning</summary>
+
+**When Claude uses this:**
 - Starting a new automation project
 - Deciding between n8n, Python, or hybrid
-- Evaluating if automation is feasible
-- Planning production-ready systems
+- Evaluating production readiness
 
 **Key files:**
 - `SKILL.md` - Decision framework
-- `tool-selection-matrix.md` - n8n vs Python criteria
-- `business-stack-analysis.md` - SaaS integration guides
+- `tool-selection-matrix.md` - n8n vs Python criteria (OAuth, volume, complexity)
+- `business-stack-analysis.md` - SaaS compatibility guides
 - `production-readiness.md` - Pre-launch checklist
 
----
+**Decision criteria:**
+| Use n8n when | Use Python when |
+|--------------|-----------------|
+| OAuth required | >5,000 records |
+| Non-tech maintainers | >20MB files |
+| Multi-day waits | Complex algorithms |
+| Standard integrations | Cutting-edge AI |
 
-### 2. n8n-workflow-patterns
-**Purpose:** Proven architectural patterns for workflows
+</details>
 
-**The 5 Core Patterns:**
+<details>
+<summary><strong>n8n-workflow-patterns</strong> - Implementation patterns</summary>
 
-| Pattern | Use Case | Example |
-|---------|----------|---------|
-| **Webhook Processing** | Receive HTTP → Process → Respond | Stripe webhooks, form submissions |
-| **HTTP API Integration** | Fetch APIs → Transform → Store | Data sync, API aggregation |
-| **Database Operations** | Read/Write/Sync databases | ETL, data migration |
-| **AI Agent Workflow** | AI with tools and memory | Chatbots, content generation |
-| **Scheduled Tasks** | Recurring automation | Daily reports, cleanup jobs |
+**The 5 core patterns:**
 
-**Key files:**
-- `SKILL.md` - Pattern overview
-- `webhook_processing.md` - Webhook patterns
-- `http_api_integration.md` - API integration
-- `database_operations.md` - Database patterns
-- `ai_agent_workflow.md` - AI agent patterns
-- `scheduled_tasks.md` - Scheduled automation
+1. **Webhook Processing** - Receive HTTP → Process → Respond
+   - Stripe webhooks, form submissions, chat integrations
 
----
+2. **HTTP API Integration** - Fetch APIs → Transform → Store
+   - Data sync, API aggregation, enrichment
 
-### 3. n8n-node-configuration
-**Purpose:** Operation-aware node configuration
+3. **Database Operations** - Read/Write/Sync databases
+   - ETL, migrations, backups
+
+4. **AI Agent Workflow** - AI with tools and memory
+   - Chatbots, content generation, analysis
+
+5. **Scheduled Tasks** - Recurring automation
+   - Daily reports, cleanup, monitoring
+
+</details>
+
+<details>
+<summary><strong>n8n-node-configuration</strong> - Node setup</summary>
 
 **Key concepts:**
 - **Operation-aware:** Different operations need different fields
 - **Property dependencies:** Fields show/hide based on other values
 - **Progressive discovery:** Start with essentials, add complexity
 
-**Key files:**
-- `SKILL.md` - Configuration workflow
-- `DEPENDENCIES.md` - Property visibility rules
-- `OPERATION_PATTERNS.md` - Common patterns by node type
+**Example:** Slack node
+```javascript
+// For operation='post' (send message)
+{ resource: "message", operation: "post", channel: "#general", text: "Hello!" }
 
----
+// For operation='update' (edit message) - different fields!
+{ resource: "message", operation: "update", messageId: "123", text: "Updated!" }
+```
 
-### 4. n8n-mcp-tools-expert
-**Purpose:** Guide for using n8n MCP tools effectively
+</details>
 
-**Tool categories:**
-- **Discovery:** `search_nodes`, `get_node_essentials`, `list_nodes`
-- **Workflow Management:** `n8n_create_workflow`, `n8n_update_partial_workflow`
-- **Validation:** `validate_workflow`, `validate_node_operation`
-- **Templates:** `search_templates`, `get_template`
-- **Execution:** `n8n_trigger_webhook_workflow`, `n8n_list_executions`
-
-**Key files:**
-- `SKILL.md` - Tool overview
-- `SEARCH_GUIDE.md` - Finding nodes and templates
-- `WORKFLOW_GUIDE.md` - Creating and managing workflows
-- `VALIDATION_GUIDE.md` - Validation strategies
-
----
-
-### 5. n8n-code-javascript
-**Purpose:** Writing JavaScript in n8n Code nodes
+<details>
+<summary><strong>n8n-code-javascript</strong> - JS Code nodes</summary>
 
 **Key syntax:**
 ```javascript
@@ -225,315 +413,213 @@ const firstItem = $json;
 // Reference other nodes
 const prevData = $node["Previous Node"].json;
 
-// HTTP requests
+// HTTP requests (built-in)
 const response = await $helpers.httpRequest({
   method: 'GET',
   url: 'https://api.example.com/data'
 });
 
-// DateTime
+// DateTime (Luxon)
 const now = DateTime.now();
+const formatted = now.toFormat('yyyy-MM-dd');
 ```
 
-**Key files:**
-- `SKILL.md` - JavaScript in n8n
-- `DATA_ACCESS.md` - Accessing data patterns
-- `BUILTIN_FUNCTIONS.md` - $helpers, DateTime, etc.
-- `COMMON_PATTERNS.md` - Frequent use cases
-- `ERROR_PATTERNS.md` - Debugging common errors
+</details>
 
----
+<details>
+<summary><strong>n8n-expression-syntax</strong> - Expression debugging</summary>
 
-### 6. n8n-code-python
-**Purpose:** Writing Python in n8n Code nodes
+**Common mistakes:**
 
-**Key syntax:**
-```python
-# Access input data
-items = _input.all()
-first_item = _json
+| Wrong | Correct | Why |
+|-------|---------|-----|
+| `{{ $json.email }}` | `{{ $json.body.email }}` | Webhook data is under `.body` |
+| `{{ json.field }}` | `{{ $json.field }}` | Missing `$` prefix |
+| `$json.field` | `{{ $json.field }}` | Missing `{{ }}` wrapper |
 
-# Reference other nodes
-prev_data = _node["Previous Node"].json
-
-# Standard library available
-import json
-import datetime
-```
-
-**Key files:**
-- `SKILL.md` - Python in n8n
-- `DATA_ACCESS.md` - Accessing data patterns
-- `STANDARD_LIBRARY.md` - Available modules
-- `COMMON_PATTERNS.md` - Frequent use cases
-- `ERROR_PATTERNS.md` - Debugging common errors
-
----
-
-### 7. n8n-expression-syntax
-**Purpose:** Writing n8n expressions correctly
-
-**Common patterns:**
+**Useful patterns:**
 ```javascript
-// Access current item
-{{ $json.fieldName }}
-
-// Access webhook body
-{{ $json.body.email }}
-
-// Reference other nodes
-{{ $node["Node Name"].json.field }}
-
 // Conditional
 {{ $json.status === 'active' ? 'Yes' : 'No' }}
+
+// Default value
+{{ $json.name || 'Unknown' }}
+
+// Reference other nodes
+{{ $node["Extract Data"].json.email }}
 ```
 
-**Key files:**
-- `SKILL.md` - Expression syntax guide
-- `EXAMPLES.md` - Common expression examples
-- `COMMON_MISTAKES.md` - Errors and fixes
-
----
-
-### 8. n8n-validation-expert
-**Purpose:** Validate workflows and fix errors
-
-**Validation profiles:**
-| Profile | Use Case |
-|---------|----------|
-| `minimal` | Required fields only |
-| `runtime` | What n8n actually checks |
-| `ai-friendly` | Balanced for AI use |
-| `strict` | Everything validated |
-
-**Key files:**
-- `SKILL.md` - Validation overview
-- `ERROR_CATALOG.md` - Common errors and fixes
-- `FALSE_POSITIVES.md` - When to ignore warnings
+</details>
 
 ---
 
 ## File Structure
 
 ```
-.claude/
-├── CLAUDE.md                          # Main configuration
-└── skills/
-    ├── n8n-workflow-architect/        # Planning & architecture
-    │   ├── SKILL.md
-    │   ├── tool-selection-matrix.md
-    │   ├── business-stack-analysis.md
-    │   └── production-readiness.md
-    │
-    ├── n8n-workflow-patterns/         # Implementation patterns
-    │   ├── SKILL.md
-    │   ├── webhook_processing.md
-    │   ├── http_api_integration.md
-    │   ├── database_operations.md
-    │   ├── ai_agent_workflow.md
-    │   └── scheduled_tasks.md
-    │
-    ├── n8n-node-configuration/        # Node setup
-    │   ├── SKILL.md
-    │   ├── DEPENDENCIES.md
-    │   └── OPERATION_PATTERNS.md
-    │
-    ├── n8n-mcp-tools-expert/          # MCP guidance
-    │   ├── SKILL.md
-    │   ├── SEARCH_GUIDE.md
-    │   ├── WORKFLOW_GUIDE.md
-    │   └── VALIDATION_GUIDE.md
-    │
-    ├── n8n-code-javascript/           # JS Code nodes
-    │   ├── SKILL.md
-    │   ├── DATA_ACCESS.md
-    │   ├── BUILTIN_FUNCTIONS.md
-    │   ├── COMMON_PATTERNS.md
-    │   └── ERROR_PATTERNS.md
-    │
-    ├── n8n-code-python/               # Python Code nodes
-    │   ├── SKILL.md
-    │   ├── DATA_ACCESS.md
-    │   ├── STANDARD_LIBRARY.md
-    │   ├── COMMON_PATTERNS.md
-    │   └── ERROR_PATTERNS.md
-    │
-    ├── n8n-expression-syntax/         # Expression syntax
-    │   ├── SKILL.md
-    │   ├── EXAMPLES.md
-    │   └── COMMON_MISTAKES.md
-    │
-    └── n8n-validation-expert/         # Validation & QA
-        ├── SKILL.md
-        ├── ERROR_CATALOG.md
-        └── FALSE_POSITIVES.md
+n8n-powerhouse/
+├── README.md                          # This file
+├── INSTALL.md                         # Detailed setup guide
+├── examples/
+│   └── README.md                      # Example prompts
+└── .claude/
+    ├── CLAUDE.md                      # Main configuration
+    └── skills/
+        ├── n8n-workflow-architect/    # 4 files - Planning
+        ├── n8n-workflow-patterns/     # 6 files - Patterns
+        ├── n8n-node-configuration/    # 4 files - Node setup
+        ├── n8n-mcp-tools-expert/      # 5 files - MCP guidance
+        ├── n8n-code-javascript/       # 6 files - JS code
+        ├── n8n-code-python/           # 6 files - Python code
+        ├── n8n-expression-syntax/     # 4 files - Expressions
+        └── n8n-validation-expert/     # 4 files - Validation
 ```
+
+**Total:** 46 files, ~25,000 words of n8n expertise
 
 ---
 
-## How Skills Work Together
+## FAQ
 
-### Example: Building an Order Automation
+### Do I need n8n Cloud or can I use self-hosted?
 
+Both work. Just change `N8N_API_URL` to your instance URL.
+
+### Does this work with n8n Community Edition?
+
+Yes! You need API access enabled. In your n8n environment variables:
 ```
-1. User: "I need to sync Shopify orders to Zoho CRM"
-   │
-   ▼
-2. n8n-workflow-architect analyzes:
-   - Stack: Shopify (OAuth) + Zoho CRM (OAuth)
-   - Recommendation: Pure n8n (both have native nodes)
-   - Pattern: Webhook Processing
-   │
-   ▼
-3. n8n-workflow-patterns provides:
-   - Webhook Processing pattern structure
-   - Idempotency strategy (check-before-create)
-   - Error handling approach
-   │
-   ▼
-4. n8n-mcp-tools-expert guides:
-   - Use search_nodes to find Shopify, Zoho nodes
-   - Use n8n_create_workflow to build
-   - Use validate_workflow before deploy
-   │
-   ▼
-5. n8n-node-configuration helps:
-   - Configure Shopify trigger for orders/create
-   - Set up Zoho CRM search + create operations
-   │
-   ▼
-6. n8n-expression-syntax fixes:
-   - Webhook data access: $json.body.email
-   - Node references: $node["Previous"].json.field
-   │
-   ▼
-7. n8n-validation-expert checks:
-   - All required fields present
-   - Expressions valid
-   - Connections correct
-   │
-   ▼
-8. Deploy to n8n instance via MCP
+N8N_PUBLIC_API_ENABLED=true
 ```
+
+### Can Claude activate workflows?
+
+No. n8n's API doesn't support activation. Claude will create the workflow and tell you to activate it in the UI.
+
+### What if Claude makes a mistake?
+
+Workflows are created inactive. Always review before activating. Claude also validates before creating.
+
+### How is this different from n8n's AI features?
+
+n8n has built-in AI for generating workflows. n8n Powerhouse gives Claude **deep expertise** plus **direct API access**. Claude can:
+- Make architectural decisions (n8n vs Python)
+- Apply production patterns (idempotency, error handling)
+- Debug complex issues
+- Create workflows that follow best practices
+
+### Can I add my own skills?
+
+Yes! Add `.md` files to `.claude/skills/your-skill-name/` and update `.claude/CLAUDE.md`.
 
 ---
 
-## MCP Tools Quick Reference
+## MCP Tools Reference
 
-### Discovery
+<details>
+<summary><strong>Discovery Tools</strong></summary>
+
 ```bash
-search_nodes         # Find nodes by keyword
-get_node_essentials  # Quick node overview
-get_node_info        # Full documentation
-list_nodes           # List by category
-list_ai_tools        # AI-capable nodes
+search_nodes          # Find nodes by keyword
+get_node_essentials   # Quick node overview (start here)
+get_node_info         # Full documentation
+list_nodes            # List by category/package
+list_ai_tools         # AI-capable nodes
 ```
 
-### Workflow Management
+</details>
+
+<details>
+<summary><strong>Workflow Management</strong></summary>
+
 ```bash
-n8n_create_workflow         # Create new workflow
-n8n_get_workflow            # Get by ID
-n8n_update_partial_workflow # Incremental updates
-n8n_update_full_workflow    # Complete replacement
-n8n_list_workflows          # List all
-n8n_delete_workflow         # Delete
+n8n_create_workflow          # Create new workflow
+n8n_get_workflow             # Get by ID
+n8n_update_partial_workflow  # Incremental updates (add/remove nodes)
+n8n_update_full_workflow     # Complete replacement
+n8n_list_workflows           # List all workflows
+n8n_delete_workflow          # Delete workflow
 ```
 
-### Validation
+</details>
+
+<details>
+<summary><strong>Validation Tools</strong></summary>
+
 ```bash
-validate_workflow            # Full validation
-validate_node_operation      # Single node
-validate_workflow_connections # Connections only
-validate_workflow_expressions # Expressions only
+validate_workflow             # Full workflow validation
+validate_node_operation       # Single node validation
+validate_workflow_connections # Check connections only
+validate_workflow_expressions # Check expressions only
+n8n_validate_workflow         # Validate by workflow ID
 ```
 
-### Templates
+</details>
+
+<details>
+<summary><strong>Template Tools</strong></summary>
+
 ```bash
-search_templates      # Search by keyword
-list_node_templates   # Find by nodes used
-get_template          # Get full JSON
-get_templates_for_task # Curated by task
+search_templates       # Search by keyword
+list_node_templates    # Find templates using specific nodes
+get_template           # Get full workflow JSON
+get_templates_for_task # Curated templates by task type
 ```
 
-### Execution
+</details>
+
+<details>
+<summary><strong>Execution Tools</strong></summary>
+
 ```bash
-n8n_trigger_webhook_workflow # Trigger via webhook
-n8n_list_executions          # Execution history
-n8n_get_execution            # Execution details
+n8n_trigger_webhook_workflow  # Trigger via webhook
+n8n_list_executions           # Execution history
+n8n_get_execution             # Execution details
+n8n_health_check              # Check n8n connectivity
 ```
 
----
-
-## Example Conversations
-
-### "Build me a Slack notification workflow"
-
-Claude will:
-1. Use `n8n-workflow-patterns` → Webhook Processing
-2. Use `search_nodes` to find Slack node
-3. Use `n8n_create_workflow` to build it
-4. Use `validate_workflow` to check
-5. Provide activation instructions
-
-### "Should I use n8n or Python for processing 50,000 records?"
-
-Claude will:
-1. Use `n8n-workflow-architect` → Tool Selection Matrix
-2. Recommend: **Python** (>5,000 records threshold)
-3. Suggest: n8n for trigger + Python service for processing
-
-### "Why is my expression not working?"
-
-Claude will:
-1. Use `n8n-expression-syntax` to diagnose
-2. Check common mistakes (missing `$json.body`, wrong `{{ }}` syntax)
-3. Provide corrected expression
+</details>
 
 ---
 
 ## Production Readiness
 
-The skills include production guidance:
+The skills include production guidance for:
 
-### Observability
-- Error notification workflows
-- Execution logging
-- Health checks
+| Area | Coverage |
+|------|----------|
+| **Observability** | Error workflows, execution logging, health checks |
+| **Idempotency** | Duplicate handling, check-before-create, idempotency keys |
+| **Cost Management** | AI API costs, caching, model selection |
+| **Operational Control** | Kill switches, approval queues, audit trails |
+| **Security** | Webhook signatures, credential handling, input validation |
 
-### Idempotency
-- Duplicate webhook handling
-- Check-before-create patterns
-- Idempotency keys
-
-### Cost Management
-- AI API cost calculation
-- Caching strategies
-- Model right-sizing
-
-### Operational Control
-- Kill switches
-- Approval queues
-- Audit trails
-
-See `.claude/skills/n8n-workflow-architect/production-readiness.md` for the full checklist.
+See [production-readiness.md](.claude/skills/n8n-workflow-architect/production-readiness.md) for the full checklist.
 
 ---
 
 ## Contributing
-
-To add or improve skills:
 
 1. Fork this repo
 2. Add/edit files in `.claude/skills/`
 3. Update skill descriptions in `.claude/CLAUDE.md`
 4. Submit a PR
 
-### Skill File Structure
+### Skill Structure
 
-Each skill should have:
-- `SKILL.md` - Main skill file (loaded when skill is invoked)
-- `README.md` - Overview for humans
+Each skill needs:
+- `SKILL.md` - Main file (loaded when skill is invoked)
+- `README.md` - Human-readable overview
 - Additional `.md` files for detailed topics
+
+---
+
+## Links
+
+- [n8n Documentation](https://docs.n8n.io/)
+- [n8n MCP on npm](https://www.npmjs.com/package/n8n-mcp)
+- [Claude Code](https://claude.ai/claude-code)
+- [Claude Code Skills Docs](https://docs.anthropic.com/en/docs/claude-code/skills)
+- [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ---
 
@@ -543,9 +629,7 @@ MIT License - Use freely for your automation projects.
 
 ---
 
-## Links
-
-- [n8n Documentation](https://docs.n8n.io/)
-- [n8n MCP](https://www.npmjs.com/package/n8n-mcp)
-- [Claude Code](https://claude.ai/claude-code)
-- [Claude Code Skills](https://docs.anthropic.com/en/docs/claude-code/skills)
+<p align="center">
+  <strong>Built with Claude Code + n8n MCP</strong><br>
+  <em>Turn conversations into production-ready automation</em>
+</p>
