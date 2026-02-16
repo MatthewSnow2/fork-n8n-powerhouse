@@ -1,0 +1,205 @@
+{
+  "name": "IdeaForge: Idea Synthesizer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ideaforge-signal-batch",
+        "responseMode": "responseNode"
+      },
+      "id": "69598d32-ff8c-4646-988f-34c6b4717149",
+      "name": "Receive Signal Batch",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [256, 496],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": { "__rl": true, "mode": "id", "value": "<YOUR_RAW_SIGNALS_DB_ID>" },
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [{ "key": "processed|checkbox", "type": "checkbox", "condition": "equals" }]
+        },
+        "options": {
+          "sort": { "sortValue": [{ "key": "harvested_at|date", "direction": "descending" }] }
+        }
+      },
+      "id": "f0d058ac-ab57-4f12-b69f-3a8b5fbd814a",
+      "name": "Fetch Unprocessed Signals",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [480, 496],
+      "credentials": { "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" } }
+    },
+    {
+      "parameters": {},
+      "id": "57c5939c-3bd6-47c4-9ad6-9a351a715276",
+      "name": "Process Each Cluster",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [928, 496]
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-sonnet-4-5-20250929" },
+        "messages": {
+          "values": [{
+            "content": "={{ $json.signals.map((s, i) => `${i+1}. Source: ${s.source}\\nCommunity: ${s.community}\\nEngagement: ${s.engagement_metrics}\\nText: ${s.raw_text}`).join('\\n\\n') }}"
+          }]
+        },
+        "options": {
+          "system": "You are a startup idea analyst. Given a cluster of community signals (Reddit posts, YouTube comments, trend data), extract ONE actionable startup product idea. Analyze the pain points expressed, identify the core unmet need, and propose a specific software product that solves it.\n\nReturn ONLY valid JSON with these fields:\n- idea_name: A descriptive name for the idea (not the product name)\n- product_name: A catchy, memorable product name (brandable, implies the solution)\n- one_liner: One sentence pitch (under 15 words)\n- problem_narrative: 150-word vivid description of the problem. Start with the pain. Be specific and visceral. Use second person.\n- solution_description: 100-word description of what the product does\n- target_audience: Who specifically buys this (job title, company size, situation)\n- primary_keyword: The main search keyword someone would use to find this\n- revenue_model: One of: subscription, freemium, marketplace, usage_based, one_time\n- suggested_price: Specific price point with reasoning",
+          "maxTokens": 1024,
+          "temperature": 1,
+          "topP": 0.7,
+          "topK": 5
+        }
+      },
+      "id": "063960de-b39a-4a2c-a84d-0161b3996445",
+      "name": "Claude: Extract Idea",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [1152, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and validate LLM output from Claude\nconst items = $input.all();\nconst output = [];\n\nfor (const item of items) {\n  try {\n    const claudeResponse = item.json;\n    let parsedData;\n    if (typeof claudeResponse === 'string') {\n      parsedData = JSON.parse(claudeResponse);\n    } else if (claudeResponse.output) {\n      parsedData = typeof claudeResponse.output === 'string' \n        ? JSON.parse(claudeResponse.output) \n        : claudeResponse.output;\n    } else {\n      parsedData = claudeResponse;\n    }\n    \n    const requiredFields = ['idea_name', 'product_name', 'one_liner', 'problem_narrative', 'solution_description', 'target_audience', 'primary_keyword', 'revenue_model', 'suggested_price'];\n    const missingFields = requiredFields.filter(field => !parsedData[field]);\n    \n    if (missingFields.length > 0) {\n      console.error(`Validation failed: Missing required fields: ${missingFields.join(', ')}`);\n      continue;\n    }\n    \n    output.push({ json: parsedData });\n  } catch (error) {\n    console.error('Error parsing LLM output:', error.message);\n  }\n}\n\nreturn output.length > 0 ? output : [];"
+      },
+      "id": "4d83920f-4963-48b7-bf98-cfea9dd4b472",
+      "name": "Parse and Validate LLM Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1504, 304]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": { "__rl": true, "mode": "id", "value": "<YOUR_IDEAS_DB_ID>" },
+        "title": "={{ $json.idea_name }}",
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "Status|status", "type": "status", "statusValue": "synthesized" },
+            { "key": "Description|rich_text", "type": "rich_text", "textContent": "={{ $json.one_liner }}" },
+            { "key": "Problem|rich_text", "type": "rich_text", "textContent": "={{ $json.problem_narrative }}" },
+            { "key": "Solution|rich_text", "type": "rich_text", "textContent": "={{ $json.solution_description }}" },
+            { "key": "Target Audience|rich_text", "type": "rich_text", "textContent": "={{ $json.target_audience }}" },
+            { "key": "Value Proposition|rich_text", "type": "rich_text", "textContent": "={{ $json.revenue_model + ' - ' + $json.suggested_price }}" },
+            { "key": "Source Signal IDs|rich_text", "type": "rich_text", "textContent": "={{ $('Process Each Cluster').item.json.signals.map(s => s.id).join(', ') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1193dc6a-55ac-42fa-a30a-e70938591c59",
+      "name": "Create Idea Record",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1728, 304],
+      "credentials": { "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" } }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": { "__rl": true, "mode": "id", "value": "={{ $('Process Each Cluster').item.json.signals[0].id }}" },
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "processed|checkbox", "type": "checkbox", "checkboxValue": true },
+            { "key": "idea|relation", "type": "relation", "relationValue": ["={{ $('Create Idea Record').item.json.id }}"] }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e18ed206-de90-492b-88fa-9595e929ddff",
+      "name": "Mark Signals Processed",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1952, 480],
+      "credentials": { "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<YOUR_N8N_INSTANCE>/webhook/ideaforge-idea-scorer",
+        "sendBody": true,
+        "options": {},
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ idea_id: $('Create Idea Record').item.json.id }) }}"
+      },
+      "id": "81481965-ceaa-4cb4-8ce2-cfdc0cdd8220",
+      "name": "Trigger Idea Scorer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1216, 496]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ideas_created: $('Create Idea Record').all().length, clusters_processed: $('Process Each Cluster').all().length } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "4901743f-ffb6-4af8-a7d5-bee71871734c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1504, 496]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ideaforge-idea-catcher",
+        "responseMode": "responseNode"
+      },
+      "id": "2ab694f2-3799-4bfb-8212-360de3da9a7e",
+      "name": "Receive Idea Catcher Input",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [704, 304],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\n\nif (!input.title || !input.content) {\n  throw new Error('Missing required fields: title and content are required');\n}\n\nconst clusterId = 'idea_catcher_' + Date.now();\n\nconst signal = {\n  id: 'idea_catcher_' + Date.now(),\n  source: 'idea_catcher',\n  community: input.context || 'claude_conversation',\n  raw_text: input.content,\n  engagement_metrics: 0,\n  harvested_at: new Date().toISOString(),\n  tags: input.tags || []\n};\n\nreturn {\n  json: {\n    cluster_id: clusterId,\n    keyword_theme: input.title,\n    signals: [signal],\n    signal_count: 1\n  }\n};"
+      },
+      "id": "dd3368e5-9833-413c-9364-d7fd238e4ebd",
+      "name": "Format as Pre-Clustered Signal",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [928, 304]
+    },
+    {
+      "id": "0a5c2c5d-b267-4daa-bcd5-87ffff6e1f0c",
+      "name": "Cluster by Category",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [704, 496],
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nconst groups = {};\nfor (const item of items) {\n  const community = item.json.properties?.community?.rich_text?.[0]?.plain_text || item.json.community || 'unknown';\n  if (!groups[community]) { groups[community] = []; }\n  groups[community].push({\n    id: item.json.id,\n    source: item.json.properties?.source?.select?.name || item.json.source || 'reddit',\n    community: community,\n    raw_text: item.json.properties?.raw_text?.rich_text?.[0]?.plain_text || item.json.raw_text || '',\n    engagement_metrics: item.json.properties?.engagement_score?.number || item.json.engagement_score || 0,\n    harvested_at: item.json.properties?.harvested_at?.date?.start || item.json.harvested_at || ''\n  });\n}\n\nconst clusters = Object.entries(groups)\n  .filter(([_, signals]) => signals.length >= 2)\n  .map(([community, signals], idx) => ({\n    json: {\n      cluster_id: 'cluster_' + (idx + 1),\n      keyword_theme: community,\n      signals: signals,\n      signal_count: signals.length\n    }\n  }));\n\nif (clusters.length === 0 && items.length > 0) {\n  const allSignals = items.map(item => ({\n    id: item.json.id,\n    source: item.json.properties?.source?.select?.name || item.json.source || 'reddit',\n    community: item.json.properties?.community?.rich_text?.[0]?.plain_text || item.json.community || 'unknown',\n    raw_text: item.json.properties?.raw_text?.rich_text?.[0]?.plain_text || item.json.raw_text || '',\n    engagement_metrics: item.json.properties?.engagement_score?.number || item.json.engagement_score || 0,\n    harvested_at: item.json.properties?.harvested_at?.date?.start || item.json.harvested_at || ''\n  }));\n  return [{ json: { cluster_id: 'cluster_1', keyword_theme: 'mixed', signals: allSignals, signal_count: allSignals.length } }];\n}\n\nreturn clusters;"
+      }
+    }
+  ],
+  "connections": {
+    "Receive Signal Batch": { "main": [[{ "node": "Fetch Unprocessed Signals", "type": "main", "index": 0 }]] },
+    "Process Each Cluster": {
+      "main": [
+        [{ "node": "Respond to Webhook", "type": "main", "index": 0 }],
+        [{ "node": "Claude: Extract Idea", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude: Extract Idea": { "main": [[{ "node": "Parse and Validate LLM Output", "type": "main", "index": 0 }]] },
+    "Parse and Validate LLM Output": { "main": [[{ "node": "Create Idea Record", "type": "main", "index": 0 }]] },
+    "Mark Signals Processed": { "main": [[{ "node": "Process Each Cluster", "type": "main", "index": 0 }]] },
+    "Receive Idea Catcher Input": { "main": [[{ "node": "Format as Pre-Clustered Signal", "type": "main", "index": 0 }]] },
+    "Format as Pre-Clustered Signal": { "main": [[{ "node": "Process Each Cluster", "type": "main", "index": 0 }]] },
+    "Fetch Unprocessed Signals": { "main": [[{ "node": "Cluster by Category", "type": "main", "index": 0 }]] },
+    "Cluster by Category": { "main": [[{ "node": "Process Each Cluster", "type": "main", "index": 0 }]] },
+    "Create Idea Record": { "main": [[{ "node": "Trigger Idea Scorer", "type": "main", "index": 0 }]] },
+    "Trigger Idea Scorer": { "main": [[{ "node": "Mark Signals Processed", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

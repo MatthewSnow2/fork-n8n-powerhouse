@@ -1,0 +1,271 @@
+{
+  "name": "IdeaForge: Deep Research Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ideaforge-deep-research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "9f61a915-e42f-4175-aa2c-742bbbc01e9f",
+      "name": "Receive Research Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [256, 304],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [{ "id": "id-1", "name": "idea_id", "value": "={{ $json.body.idea_id }}", "type": "string" }]
+        },
+        "options": {}
+      },
+      "id": "92cf5c0c-0150-43c9-bd3e-ba56d301d93b",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 304]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "get",
+        "pageId": { "__rl": true, "mode": "id", "value": "={{ $('Workflow Configuration').item.json.idea_id }}" }
+      },
+      "id": "86da1983-7f1d-46da-b57b-a01760be3c22",
+      "name": "Fetch Idea + Signals",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [704, 304],
+      "credentials": { "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" } }
+    },
+    {
+      "parameters": {
+        "messages": { "message": [{ "content": "={{ \"What is the total addressable market size for \" + ($('Fetch Idea + Signals').item.json.properties.category?.rich_text?.[0]?.plain_text || 'this category') + \"? Provide specific dollar figures, growth rates, and cite your sources.\" }}" }] },
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "322309f7-5d45-4218-b1eb-6809591f517b",
+      "name": "Research: Market Size",
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [928, 304],
+      "credentials": { "perplexityApi": { "id": "<YOUR_PERPLEXITY_CREDENTIAL_ID>", "name": "Perplexity account" } }
+    },
+    {
+      "parameters": {
+        "messages": { "message": [{ "content": "={{ \"List the top 10 companies that currently serve \" + ($('Fetch Idea + Signals').item.json.properties.target_audience?.rich_text?.[0]?.plain_text || 'the target audience') + \" with solutions related to this problem. For each: name, URL, funding, pricing, key features.\" }}" }] },
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "fb5524a1-7df3-49e6-9273-911fa22c7c78",
+      "name": "Research: Competitors",
+      "type": "n8n-nodes-base.perplexity",
+      "typeVersion": 1,
+      "position": [1152, 304],
+      "credentials": { "perplexityApi": { "id": "<YOUR_PERPLEXITY_CREDENTIAL_ID>", "name": "Perplexity account" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v1/scrape",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "<YOUR_FIRECRAWL_API_KEY>" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"url\": $('Research: Competitors').item.json.text.split('\\n')[0], \"formats\": [\"markdown\"], \"onlyMainContent\": true } }}",
+        "options": {}
+      },
+      "id": "a05aa326-4dfc-4e1a-a756-173b9152e047",
+      "name": "Firecrawl: Scrape Top 3 Competitors",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1376, 304]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://old.reddit.com/search.json?q=' + encodeURIComponent($('Fetch Idea + Signals').item.json.properties.primary_keyword?.rich_text?.[0]?.plain_text || 'keyword') + '&limit=100&sort=relevance' }}",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "User-Agent", "value": "n8n-workflow/1.0" }] },
+        "options": {}
+      },
+      "id": "50eabc5a-a5ca-41c7-91fe-d98141ce1820",
+      "name": "Reddit: Deep Community Scan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1600, 304]
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-haiku-4-5-20251001" },
+        "messages": { "values": [{ "content": "=Based on competitor data:\n\n{{ $('Firecrawl: Scrape Top 3 Competitors').item.json }}\n\nGenerate: 1. Feature comparison matrix 2. Pricing analysis 3. Market gaps 4. Positioning recommendation" }] },
+        "options": {}
+      },
+      "id": "96ae8e23-10ec-4988-8355-49c9c2de5e3c",
+      "name": "Claude: Competitive Analysis",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [1824, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-haiku-4-5-20251001" },
+        "messages": { "values": [{ "content": "=Based on competitive analysis:\n\n{{ $('Claude: Competitive Analysis').item.json.text }}\n\nGenerate revenue model: pricing tiers, Year 1-3 projections, key assumptions." }] },
+        "options": {}
+      },
+      "id": "f2293ed9-8ecc-4a57-bf77-c5c45c64cadb",
+      "name": "Claude: Revenue Model",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [2176, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-haiku-4-5-20251001" },
+        "messages": { "values": [{ "content": "=Based on revenue model:\n\n{{ $('Claude: Revenue Model').item.json.text }}\n\nGenerate go-to-market plan: acquisition channels, week-by-week launch plan, content marketing, community seeding." }] },
+        "options": {}
+      },
+      "id": "2365651a-b316-43fb-90cd-bdeed028f988",
+      "name": "Claude: Go-To-Market Plan",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [2528, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-haiku-4-5-20251001" },
+        "messages": { "values": [{ "content": "=Based on idea details:\n\n{{ JSON.stringify($('Fetch Idea + Signals').item.json.properties) }}\n\nGenerate technical assessment: tech stack, build time, risks, architecture." }] },
+        "options": {}
+      },
+      "id": "bcce240a-6b6a-43b7-9439-f102fbc59e3d",
+      "name": "Claude: Technical Assessment",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [2880, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "mode": "id", "value": "claude-haiku-4-5-20251001" },
+        "messages": { "values": [{ "content": "=Synthesize ALL research into comprehensive report:\n\nMARKET: {{ $('Research: Market Size').item.json.text }}\nCOMPETITORS: {{ $('Research: Competitors').item.json.text }}\nREDDIT: {{ JSON.stringify($('Reddit: Deep Community Scan').item.json) }}\nANALYSIS: {{ $('Claude: Competitive Analysis').item.json.text }}\nREVENUE: {{ $('Claude: Revenue Model').item.json.text }}\nGTM: {{ $('Claude: Go-To-Market Plan').item.json.text }}\nTECH: {{ $('Claude: Technical Assessment').item.json.text }}\n\nSections: Executive Summary, Market Opportunity, Competitive Landscape, Product Spec, Revenue Model, GTM Strategy, Technical Plan, Risk Assessment, Recommendation" }] },
+        "options": {}
+      },
+      "id": "37492843-c5d9-4b47-b3bf-4e9034ea0e82",
+      "name": "Claude: Assemble Full Report",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [3232, 304],
+      "credentials": { "anthropicApi": { "id": "<YOUR_ANTHROPIC_CREDENTIAL_ID>", "name": "Anthropic account" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const report = $input.item.json.text;\nconst ideaData = $('Fetch Idea + Signals').item.json;\n\nconst html = `<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>Deep Research Report</title>\n<style>body{font-family:'Segoe UI',sans-serif;line-height:1.6;color:#333;max-width:1200px;margin:0 auto;padding:40px 20px;background:#f5f5f5}.container{background:white;padding:60px;box-shadow:0 0 20px rgba(0,0,0,0.1)}h1{color:#2c3e50;border-bottom:4px solid #3498db;padding-bottom:20px}h2{color:#34495e;margin-top:40px;border-left:5px solid #3498db;padding-left:15px}.metadata{background:#f8f9fa;padding:20px;margin-bottom:30px;border-radius:5px}</style>\n</head><body><div class=\"container\">\n<h1>IdeaForge Deep Research Report</h1>\n<div class=\"metadata\"><p><strong>Idea ID:</strong> ${ideaData.id || 'N/A'}</p><p><strong>Generated:</strong> ${new Date().toLocaleString()}</p></div>\n<div class=\"report-content\">${report.replace(/\\n/g, '<br>').replace(/## /g, '</div><h2>').replace(/### /g, '</div><h3>')}</div>\n</div></body></html>`;\n\nreturn { json: { html } };",
+        "mode": "runOnceForEachItem"
+      },
+      "id": "8096b639-2c99-4b3f-94ec-9b870c99a060",
+      "name": "Generate HTML Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3584, 304]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Authorization", "value": "<YOUR_PDFSHIFT_API_KEY>" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"source\": $('Generate HTML Report').item.json.html, \"landscape\": false, \"use_print\": false } }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "d23927fd-9806-4037-b48d-ca82633a74c2",
+      "name": "Convert to PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [3808, 304]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "name": "={{ 'IdeaForge_Report_' + $('Workflow Configuration').item.json.idea_id + '_' + new Date().toISOString().split('T')[0] + '.pdf' }}",
+        "driveId": { "__rl": true, "value": "My Drive", "mode": "list" },
+        "folderId": { "__rl": true, "value": "<YOUR_GOOGLE_DRIVE_FOLDER_ID>", "mode": "id" },
+        "options": { "simplifyOutput": true },
+        "operation": "upload"
+      },
+      "id": "178d1bc6-2116-4417-a7b3-70f5d605ff35",
+      "name": "Upload Report PDF",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [4032, 304],
+      "credentials": { "googleApi": { "id": "<YOUR_GOOGLE_CREDENTIAL_ID>", "name": "Google account" } }
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": { "__rl": true, "mode": "id", "value": "={{ $('Workflow Configuration').item.json.idea_id }}" },
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "report_url|url", "type": "url", "urlValue": "={{ $('Upload Report PDF').item.json.webViewLink }}" },
+            { "key": "status|status", "type": "status", "statusValue": "deep_research" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9c142371-217e-4603-acb9-1df22d7fd694",
+      "name": "Update Idea with Report",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [4256, 304],
+      "credentials": { "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, report_url: $('Upload Report PDF').item.json.webViewLink, idea_id: $('Workflow Configuration').item.json.idea_id }) }}",
+        "options": {}
+      },
+      "id": "ec6f816f-c43e-4362-b004-e9c2946a12ae",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [4480, 304]
+    }
+  ],
+  "connections": {
+    "Receive Research Request": { "main": [[{ "node": "Workflow Configuration", "type": "main", "index": 0 }]] },
+    "Workflow Configuration": { "main": [[{ "node": "Fetch Idea + Signals", "type": "main", "index": 0 }]] },
+    "Fetch Idea + Signals": { "main": [[{ "node": "Research: Market Size", "type": "main", "index": 0 }]] },
+    "Research: Market Size": { "main": [[{ "node": "Research: Competitors", "type": "main", "index": 0 }]] },
+    "Research: Competitors": { "main": [[{ "node": "Firecrawl: Scrape Top 3 Competitors", "type": "main", "index": 0 }]] },
+    "Firecrawl: Scrape Top 3 Competitors": { "main": [[{ "node": "Reddit: Deep Community Scan", "type": "main", "index": 0 }]] },
+    "Reddit: Deep Community Scan": { "main": [[{ "node": "Claude: Competitive Analysis", "type": "main", "index": 0 }]] },
+    "Claude: Competitive Analysis": { "main": [[{ "node": "Claude: Revenue Model", "type": "main", "index": 0 }]] },
+    "Claude: Revenue Model": { "main": [[{ "node": "Claude: Go-To-Market Plan", "type": "main", "index": 0 }]] },
+    "Claude: Go-To-Market Plan": { "main": [[{ "node": "Claude: Technical Assessment", "type": "main", "index": 0 }]] },
+    "Claude: Technical Assessment": { "main": [[{ "node": "Claude: Assemble Full Report", "type": "main", "index": 0 }]] },
+    "Claude: Assemble Full Report": { "main": [[{ "node": "Generate HTML Report", "type": "main", "index": 0 }]] },
+    "Generate HTML Report": { "main": [[{ "node": "Convert to PDF", "type": "main", "index": 0 }]] },
+    "Convert to PDF": { "main": [[{ "node": "Upload Report PDF", "type": "main", "index": 0 }]] },
+    "Upload Report PDF": { "main": [[{ "node": "Update Idea with Report", "type": "main", "index": 0 }]] },
+    "Update Idea with Report": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

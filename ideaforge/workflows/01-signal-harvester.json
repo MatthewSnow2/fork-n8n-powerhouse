@@ -1,0 +1,172 @@
+{
+  "name": "IdeaForge: Signal Harvester",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "triggerAtHour": 2 }]
+        }
+      },
+      "id": "95925023-2bf9-495d-95b7-30dd48206e42",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [256, 496]
+    },
+    {
+      "parameters": {
+        "jsCode": "const subreddits = [\n  { subreddit: 'nursing', category: 'Healthcare' },\n  { subreddit: 'healthIT', category: 'Healthcare Technology' },\n  { subreddit: 'sysadmin', category: 'IT Operations' },\n  { subreddit: 'smallbusiness', category: 'Business' },\n  { subreddit: 'Entrepreneur', category: 'Business' },\n  { subreddit: 'SaaS', category: 'Software' }\n];\n\nreturn subreddits.map(item => ({ json: item }));"
+      },
+      "id": "c5d4a416-bf32-484b-932f-603372509438",
+      "name": "Build Subreddit List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [704, 496]
+    },
+    {
+      "parameters": { "options": {} },
+      "id": "1e46aa5c-bc14-41e6-93aa-8f8e68631872",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [928, 496]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://old.reddit.com/r/' + $json.subreddit + '/search.json' }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "q", "value": "\"I wish\" OR \"is there a tool\" OR \"frustrated with\" OR \"any recommendations\"" },
+            { "name": "sort", "value": "new" },
+            { "name": "limit", "value": "25" },
+            { "name": "restrict_sr", "value": "true" },
+            { "name": "t", "value": "week" }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "User-Agent", "value": "IdeaForge/1.0" }]
+        },
+        "options": {}
+      },
+      "id": "3069c6bf-0613-40ba-97d8-720f9a2bb44e",
+      "name": "Reddit: Search Pain Points",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1152, 304]
+    },
+    {
+      "parameters": {
+        "jsCode": "const redditData = $input.item.json;\nconst subreddit = $('Split In Batches').item.json.subreddit;\nconst category = $('Split In Batches').item.json.category;\n\nif (!redditData.data || !redditData.data.children) {\n  return [{ json: { _no_signals: true } }];\n}\n\nconst posts = redditData.data.children\n  .map(child => child.data)\n  .filter(post => post.score >= 5 && post.num_comments >= 2);\n\nif (posts.length === 0) {\n  return [{ json: { _no_signals: true } }];\n}\n\nconst signals = posts.map(post => {\n  const rawText = (post.title + ' ' + (post.selftext || '')).substring(0, 500);\n  \n  let signalType = 'complaint';\n  const lowerText = rawText.toLowerCase();\n  if (lowerText.includes('frustrated') || lowerText.includes('annoying') || lowerText.includes('hate')) {\n    signalType = 'pain_point';\n  } else if (lowerText.includes('i wish') || lowerText.includes('would be nice')) {\n    signalType = 'wish';\n  } else if (lowerText.includes('is there a tool') || lowerText.includes('any recommendations')) {\n    signalType = 'solution_request';\n  }\n  \n  return {\n    json: {\n      signal_id: 'sig_' + subreddit + '_' + post.id,\n      source: 'reddit',\n      source_url: 'https://reddit.com' + post.permalink,\n      raw_text: rawText,\n      community: subreddit,\n      engagement_score: post.score + (post.num_comments * 2),\n      signal_type: signalType,\n      harvested_at: new Date().toISOString(),\n      category: category\n    }\n  };\n});\n\nreturn signals;"
+      },
+      "id": "b262a3f8-13b0-4c32-a61e-efe0f860431d",
+      "name": "Filter and Normalize Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1376, 304]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "databaseId": {
+          "__rl": true,
+          "value": "<YOUR_RAW_SIGNALS_DB_ID>",
+          "mode": "id"
+        },
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "source|select", "textContent": "={{ $json.source }}" },
+            { "key": "source_url|url", "urlValue": "={{ $json.source_url }}" },
+            { "key": "raw_text|rich_text", "textContent": "={{ $json.raw_text }}" },
+            { "key": "community|rich_text", "textContent": "={{ $json.community }}" },
+            { "key": "engagement_score|number", "numberValue": "={{ $json.engagement_score }}" },
+            { "key": "signal_type|select", "textContent": "={{ $json.signal_type }}" },
+            { "key": "harvested_at|date", "date": "={{ $json.harvested_at }}" },
+            { "key": "processed|checkbox", "checkboxValue": false }
+          ]
+        },
+        "options": {},
+        "title": "={{ $json.signal_id }}"
+      },
+      "id": "49f52c6e-7799-4650-b73f-01fdeabe2046",
+      "name": "Store Raw Signals",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1824, 200],
+      "credentials": {
+        "notionApi": { "id": "<YOUR_NOTION_CREDENTIAL_ID>", "name": "Notion account" }
+      }
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "639b0149-9c11-46e3-b1d9-bdcf3cd16012",
+      "name": "Aggregate Signals",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1152, 496]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "<YOUR_N8N_INSTANCE>/webhook/ideaforge-signal-batch",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ batch_id: $now.toFormat('yyyy-MM-dd') }) }}",
+        "options": {}
+      },
+      "id": "dfffced1-86f4-4c1f-897f-822a3164973d",
+      "name": "Trigger Idea Synthesizer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1376, 496],
+      "disabled": false
+    },
+    {
+      "id": "13502a28-2c40-4cb4-a2ba-f486b1520243",
+      "name": "Has Signals?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1600, 304],
+      "parameters": {
+        "conditions": {
+          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.signal_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "exists" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": { "main": [[{ "node": "Build Subreddit List", "type": "main", "index": 0 }]] },
+    "Build Subreddit List": { "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]] },
+    "Split In Batches": {
+      "main": [
+        [{ "node": "Aggregate Signals", "type": "main", "index": 0 }],
+        [{ "node": "Reddit: Search Pain Points", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reddit: Search Pain Points": { "main": [[{ "node": "Filter and Normalize Signals", "type": "main", "index": 0 }]] },
+    "Store Raw Signals": { "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]] },
+    "Aggregate Signals": { "main": [[{ "node": "Trigger Idea Synthesizer", "type": "main", "index": 0 }]] },
+    "Filter and Normalize Signals": { "main": [[{ "node": "Has Signals?", "type": "main", "index": 0 }]] },
+    "Has Signals?": {
+      "main": [
+        [{ "node": "Store Raw Signals", "type": "main", "index": 0 }],
+        [{ "node": "Split In Batches", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}
